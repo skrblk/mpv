@@ -11,6 +11,15 @@ This is a bunch of modifications and bugfix attempts
                                                                  (or do so at your own peril)
 ```
 
+## Changes in this fork
+
+This repository is mpv with a few changes on top of the newest upstream release.
+
+- **The bottom bar spends its spare width on the seekbar.** In the `bottombar`
+  and `topbar` OSC layouts, the timecodes and the audio and subtitle buttons
+  are sized to their text instead of fixed slots, so every gap between
+  components is the same padding and all remaining width goes to the seekbar.
+
 
 * [External links](#external-links)
 * [Overview](#overview)

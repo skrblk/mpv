@@ -624,6 +624,22 @@ local function update_tracklist()
     end
 end
 
+-- Width of ASS text on the OSC canvas
+local width_overlay = mp.create_osd_overlay("ass-events")
+width_overlay.compute_bounds = true
+width_overlay.hidden = true
+
+local function measure_width(text)
+    width_overlay.res_x = osc_param.playresx
+    width_overlay.res_y = osc_param.playresy
+    width_overlay.data = text
+    local bounds = width_overlay:update()
+    if not bounds or not bounds.x0 then
+        return 0
+    end
+    return bounds.x1 - bounds.x0
+end
+
 -- WindowControl helpers
 local function window_controls_enabled()
     local val = user_opts.windowcontrols
@@ -1556,14 +1572,38 @@ local function bar_layout(direction, slim)
     local padX = 9
     local padY = 3
     local buttonW = 27
-    local tcW = (state.tc_ms) and 170 or 110
+
+    -- Size the timecodes and track buttons to their text, so that only the
+    -- seekbar takes up the remaining width. Digits are measured as zeros to
+    -- keep the widths stable while the numbers change.
+    local function zeros(s)
+        return (s:gsub("%d", "0"))
+    end
+    local suffix = state.tc_ms and "/full" or ""
+    local duration = mp.get_property_osd("duration" .. suffix, "")
+    if duration == "" then
+        duration = mp.get_property_osd("playback-time" .. suffix, "")
+    end
+    local minus = user_opts.unicodeminus and UNICODE_MINUS or "-"
+    local tcW_l = measure_width(osc_styles.timecodesBar .. zeros(duration))
+    local tcW_r = measure_width(osc_styles.timecodesBar ..
+                                (state.rightTC_trem and minus or "") ..
+                                zeros(duration))
     if user_opts.tcspace >= 50 and user_opts.tcspace <= 200 then
-        -- adjust our hardcoded font size estimation
-        tcW = tcW * user_opts.tcspace / 100
+        tcW_l = tcW_l * user_opts.tcspace / 100
+        tcW_r = tcW_r * user_opts.tcspace / 100
     end
 
-    local tsW = 90
-    local minW = (buttonW + padX)*5 + (tcW + padX)*4 + (tsW + padX)*2
+    local function track_width(icon, count)
+        local n = zeros(tostring(count))
+        return measure_width(osc_styles.smallButtonsBar .. icon ..
+                             osc_styles.smallButtonsLlabel .. " " .. n .. "/" .. n)
+    end
+    local asW = track_width(icons.audio, audio_track_count)
+    local ssW = track_width(icons.subtitle, sub_track_count)
+
+    local minW = (buttonW + padX)*5 + (tcW_l + padX)*2 + (tcW_r + padX)*2 +
+                 (asW + padX) + (ssW + padX)
 
     -- Special topbar handling when window controls are present
     local padwc_l
@@ -1709,8 +1749,8 @@ local function bar_layout(direction, slim)
     lo.style = osc_styles.smallButtonsBar
 
     -- Left timecode
-    geo = { x = geo.x + geo.w + padX + tcW, y = geo.y, an = 6,
-            w = tcW, h = geo.h }
+    geo = { x = geo.x + geo.w + padX + tcW_l, y = geo.y, an = 6,
+            w = tcW_l, h = geo.h }
     lo = add_layout("tc_left")
     lo.geometry = geo
     lo.style = osc_styles.timecodesBar
@@ -1731,20 +1771,20 @@ local function bar_layout(direction, slim)
     lo.style = osc_styles.smallButtonsBar
 
     -- Track selection buttons
-    geo = { x = geo.x - tsW - padX, y = geo.y, an = geo.an, w = tsW, h = geo.h }
+    geo = { x = geo.x - ssW - padX, y = geo.y, an = geo.an, w = ssW, h = geo.h }
     lo = add_layout("sub_track")
     lo.geometry = geo
     lo.style = osc_styles.smallButtonsBar
 
-    geo = { x = geo.x - geo.w - padX, y = geo.y, an = geo.an, w = geo.w, h = geo.h }
+    geo = { x = geo.x - asW - padX, y = geo.y, an = geo.an, w = asW, h = geo.h }
     lo = add_layout("audio_track")
     lo.geometry = geo
     lo.style = osc_styles.smallButtonsBar
 
 
     -- Right timecode
-    geo = { x = geo.x - padX - tcW - 10, y = geo.y, an = geo.an,
-            w = tcW, h = geo.h }
+    geo = { x = geo.x - padX - tcW_r, y = geo.y, an = geo.an,
+            w = tcW_r, h = geo.h }
     lo = add_layout("tc_right")
     lo.geometry = geo
     lo.style = osc_styles.timecodesBar
@@ -2129,8 +2169,10 @@ local function osc_init()
             end
         end
     end
-    ne.eventresponder["mbtn_left_up"] =
-        function () state.rightTC_trem = not state.rightTC_trem end
+    ne.eventresponder["mbtn_left_up"] = function ()
+        state.rightTC_trem = not state.rightTC_trem
+        request_init()
+    end
 
     -- cache
     ne = new_element("cache", "button")
