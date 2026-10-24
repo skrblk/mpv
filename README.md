@@ -2,6 +2,15 @@
 
 # mpv
 
+```
+Media players are not my area of expertise.
+This is a bunch of modifications and bugfix attempts
+  resulting from controlled agentic coding with continuous oversight and steering.
+- I define the behavior and hunt down the edge cases, but delegate the implementation.
+-> do not interpret this fork as meticulously engineered production software
+                                                                 (or do so at your own peril)
+```
+
 
 * [External links](#external-links)
 * [Overview](#overview)
